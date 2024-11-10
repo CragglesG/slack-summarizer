@@ -8,6 +8,9 @@ repository = "https://github.com/CragglesG/slack-summarizer"
 homepage = "https://github.com/CragglesG/slack-summarizer"
 keywords = ["tool", "cli-tool", "utility"]
 categories = ["command-line-utilities"]
+description = "lack Summarizer is a handy CLI tool for summarizing recent messages in Slack. It allows you to easily catch up on what's happening without leaving your command line."
+
+
 
 
 [dependencies]
