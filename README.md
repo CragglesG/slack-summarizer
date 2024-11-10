@@ -4,7 +4,7 @@ Slack Summarizer is a handy CLI tool for summarizing recent messages in Slack. I
 
 ## Setup
 
-To set up Slack Summarizer, start by creating a Slack app with the `channels:history`, `channels:join`, and `channels:read` scopes. Install the app to your workspace and keep a note of the bot token. You'll need it when you first use Slack Summarizer. Now you'll need to get an OpenAI token from your preferred provider. If you choose to use a different provider than OpenAI itself, you'll have to change the default request URL when using Slack Summarizer for the first time.
+To set up Slack Summarizer, start by creating a Slack app with the `channels:history`, `channels:join`, and `channels:read` scopes. Install the app to your workspace and make a note of the bot token. You'll need it when you first use Slack Summarizer. Now you'll need to get an OpenAI token from your preferred provider. If you choose to use a provider other than OpenAI itself, you'll have to change the default request URL when using Slack Summarizer for the first time.
 
 ## First-time Use
 
