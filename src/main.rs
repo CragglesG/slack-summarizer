@@ -17,26 +17,41 @@ struct Config {
     slack_token: String,
     openai_token: String,
     request_url: String,
+    model: String,
+    max_tokens: i32,
+    num_messages: i32,
 }
 
 impl ::std::default::Default for Config {
-    fn default() -> Self { Self { slack_token: "xoxb-1234567890-abcdefghijklm-1234567890abcdefghijkl".into(), openai_token: "SOME_OPENAI_TOKEN".into(), request_url: "https://api.openai.com/v1/chat/completions".into() } }
+    fn default() -> Self { Self { slack_token: "xoxb-1234567890-abcdefghijklm-1234567890abcdefghijkl".into(), openai_token: "SOME_OPENAI_TOKEN".into(), request_url: "https://api.openai.com/v1/chat/completions".into(), model: "gpt-4o-mini".into(), max_tokens: 1000, num_messages: 20, } }
 }
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Set Slack bot token
+    /// Set the Slack bot token
     #[arg(short, long)]
     slack_token: Option<String>,
 
-    /// Set OpenAI token
+    /// Set the OpenAI token
     #[arg(short, long)]
     openai_token: Option<String>,
 
     /// Set the OpenAI request URL
     #[arg(short, long)]
     request_url: Option<String>,
+
+    /// Set the OpenAI model
+    #[arg(short, long)]
+    model: Option<String>,
+
+    /// Set the maximum number of output tokens
+    #[arg(short, long)]
+    tokens: Option<i32>,
+
+    /// Set the number of messages to summarize
+    #[arg(short, long)]
+    num_messages: Option<i32>,
 
     #[command(subcommand)]
     command: Option<Commands>,
@@ -71,19 +86,22 @@ fn main() {
     });
 
     let request_url = args.request_url.unwrap_or(cfg.request_url);
+    let model = args.model.unwrap_or(cfg.model);
+    let max_tokens = args.tokens.unwrap_or(cfg.max_tokens);
+    let num_messages = args.num_messages.unwrap_or(cfg.num_messages);
 
     let channels = get_channels(slack_token.clone());
     let messages = if let Some(Commands::Summarize { channel }) = args.command {
-        get_messages(slack_token.clone(), channels.get(&channel).unwrap().to_string())
+        get_messages(slack_token.clone(), channels.get(&channel).unwrap().to_string(), num_messages.clone())
     } else {
         Vec::new()
     };
 
-    let summary = summarize_messages(messages, openai_token.clone(), request_url.clone());
+    let summary = summarize_messages(messages, openai_token.clone(), request_url.clone(), model.clone(), max_tokens.clone());
     let cleaned_summary = summary.replace("\\n", "\n").replace("\\", "") + "\n";
     print_inline(cleaned_summary.as_str());
 
-    confy::store("slack-summarizer", None, Config { slack_token:slack_token, openai_token:openai_token, request_url:request_url }).expect("Failed to store configuration");
+    confy::store("slack-summarizer", None, Config { slack_token:slack_token, openai_token:openai_token, request_url:request_url, model:model, max_tokens:max_tokens, num_messages:num_messages }).expect("Failed to store configuration");
 
 }
 
@@ -108,14 +126,14 @@ fn get_channels(bot_token: String) -> HashMap<String, String> {
     channels
 }
 
-fn get_messages(bot_token: String, channel_id: String) -> Vec<String> {
+fn get_messages(bot_token: String, channel_id: String, num_messages: i32) -> Vec<String> {
     join_channel(channel_id.clone(), bot_token.clone());
 
     let client = Client::new();
     let response = client
         .get("https://slack.com/api/conversations.history")
         .header("Authorization", format!("Bearer {}", bot_token))
-        .query(&[("channel", channel_id), ("limit", "20".to_string())])
+        .query(&[("channel", channel_id), ("limit", num_messages.to_string())])
         .send().expect("Failed to send request");
 
     let response_json: Value = response.json().expect("Failed to parse JSON");
@@ -129,7 +147,7 @@ fn get_messages(bot_token: String, channel_id: String) -> Vec<String> {
     messages
 }
 
-fn summarize_messages(messages: Vec<String>, openai_token: String, request_url: String) -> String {
+fn summarize_messages(messages: Vec<String>, openai_token: String, request_url: String, model: String, max_tokens: i32) -> String {
     let client = Client::new();
     let response = client
         .post(request_url)
@@ -138,17 +156,17 @@ fn summarize_messages(messages: Vec<String>, openai_token: String, request_url: 
             "messages": [
                 {
                     "role": "system",
-                    "content": "You are a Slack summarizer bot. You must summarize the last 20 messages sent in a Slack channel. The following are the messages:"
+                    "content": "You are a Slack summarizer bot. You must summarize the most recent messages sent in a Slack channel. The following are the messages:"
                 },
                 {
                     "role": "user",
                     "content": messages.join("\n")
                 }
             ],
-            "temperature": 1.0,
-            "top_p": 1.0,
-            "max_tokens": 1000,
-            "model": "gpt-4o-mini"
+            "temperature": 0.75,
+            "top_p": 0.75,
+            "max_tokens": max_tokens,
+            "model": model
         }))
         .send().expect("Failed to send request");
 

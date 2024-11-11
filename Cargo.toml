@@ -1,11 +1,10 @@
 [package]
 name = "slack-summarizer"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 readme = "README.md"
-license-file = "LICENSE"
+license = "MIT"
 repository = "https://github.com/CragglesG/slack-summarizer"
-homepage = "https://github.com/CragglesG/slack-summarizer"
 keywords = ["tool", "cli-tool", "utility"]
 categories = ["command-line-utilities"]
 description = "Slack Summarizer is a handy CLI tool for summarizing recent messages in Slack. It allows you to easily catch up on what's happening without leaving your command line."
