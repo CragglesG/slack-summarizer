@@ -20,6 +20,9 @@ You can also specify a different OpenAI API URL if you are using a different pro
 slack-summarizer -r API_URL summarize general
 ```
 
+> Note:
+> The first run may take a long time, depending on your workspace size, as Slack Summarizer has to retrieve a list of all Slack channels and map channel names to IDs
+
 ## Usage
 
 
@@ -37,3 +40,4 @@ Any arguments passed will be written to the configuration file. Existing values 
 | `--model` | `-m`       | Set the OpenAI model       |
 | `--tokens` | `-t`       | Set the maximum number of output tokens       |
 | `--num-messages` | `-n`       | Set the number of messages to summarize        |
+| `--channels-refill` | `-c`       | Refill the channel list (may take a long time)        |

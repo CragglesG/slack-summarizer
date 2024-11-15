@@ -1,6 +1,6 @@
 [package]
 name = "slack-summarizer"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 readme = "README.md"
 license = "MIT"
@@ -13,9 +13,9 @@ description = "Slack Summarizer is a handy CLI tool for summarizing recent messa
 
 
 [dependencies]
-clap = { version = "4.5.20", features = ["derive"] }
+clap = { version = "4.5.21", features = ["derive"] }
 confy = "0.6.1"
 reqwest = { version = "0.12.9", features = ["blocking", "json"] }
-serde = { version = "1.0.214", features = ["derive"] }
+serde = { version = "1.0.215", features = ["derive"] }
 serde_json = "1.0.132"
 termimad = "0.31.0"

@@ -1,10 +1,10 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fs::File, path::Path};
 
 use clap::{Parser, Subcommand};
 
 use reqwest::blocking::Client;
 
-use serde_json::{Value, json};
+use serde_json::{Value, json, to_writer};
 
 use confy;
 
@@ -53,6 +53,10 @@ struct Args {
     #[arg(short, long)]
     num_messages: Option<i32>,
 
+    /// Refill the channel list
+    #[arg(short, long)]
+    channels_refill: bool,
+
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -90,9 +94,20 @@ fn main() {
     let max_tokens = args.tokens.unwrap_or(cfg.max_tokens);
     let num_messages = args.num_messages.unwrap_or(cfg.num_messages);
 
-    let channels = get_channels(slack_token.clone());
+    let mut channels: HashMap<String, String> = HashMap::new();
+    if args.channels_refill {
+        channels = get_channels(slack_token.clone(), true);
+    } else {
+        channels = get_channels(slack_token.clone(), false);
+    }
     let messages = if let Some(Commands::Summarize { channel }) = args.command {
-        get_messages(slack_token.clone(), channels.get(&channel).unwrap().to_string(), num_messages.clone())
+        match channels.get(&channel) {
+            Some(channel_id) => get_messages(slack_token.clone(), channel_id.clone(), num_messages),
+            None => {
+                eprintln!("Channel '{}' not found.", channel);
+                Vec::new()
+            }
+        }
     } else {
         Vec::new()
     };
@@ -105,16 +120,25 @@ fn main() {
 
 }
 
-fn get_channels(bot_token: String) -> HashMap<String, String> {
+fn get_channels(bot_token: String, force_refill: bool) -> HashMap<String, String> {
+    let mut channels = HashMap::new();
+
+    let path = confy::get_configuration_file_path("slack-summarizer", None).unwrap_or("".into()).into_os_string().into_string().unwrap_or("".into());
+
+    if !force_refill && Path::new(&(path.clone() + "channels.json")).exists() {
+        let hashmap_file = File::open(path + "channels.json").expect("Failed to open file");
+        channels = serde_json::from_reader(hashmap_file).expect("Failed to read file");
+        return channels;
+    }
+
     let client = Client::new();
     let response = client
         .get("https://slack.com/api/conversations.list")
         .header("Authorization", format!("Bearer {}", bot_token))
+        .query(&[("types", "public_channel"), ("limit", "1000"), ("exclude_archived", "false")])
         .send().expect("Failed to send request");
 
-    let response_json: Value = response.json().expect("Failed to parse JSON");
-
-    let mut channels = HashMap::new();
+    let mut response_json: Value = response.json().expect("Failed to parse JSON");
 
     for channel in response_json["channels"].as_array().unwrap() {
         channels.insert(
@@ -122,6 +146,27 @@ fn get_channels(bot_token: String) -> HashMap<String, String> {
             channel["id"].as_str().unwrap().to_string(),
         );
     }
+
+    while response_json["response_metadata"]["next_cursor"].as_str().is_some() {
+        let cursor = response_json["response_metadata"]["next_cursor"].as_str().unwrap();
+        let response = client
+            .get("https://slack.com/api/conversations.list")
+            .header("Authorization", format!("Bearer {}", bot_token))
+            .query(&[("types", "public_channel"), ("limit", "1000"), ("exclude_archived", "true"), ("cursor", cursor)])
+            .send().expect("Failed to send request");
+
+        response_json = response.json().unwrap_or_else(|_| json!({"channels": [], "response_metadata": {}}));
+
+        for channel in response_json["channels"].as_array().unwrap_or(&Vec::new()) {
+            channels.insert(
+                channel["name"].as_str().unwrap().to_string(),
+                channel["id"].as_str().unwrap().to_string(),
+            );
+        }
+    }
+
+    let hashmap_file = File::create("channels.json").expect("Failed to create file");
+    to_writer(hashmap_file, &channels).expect("Failed to write to file");
 
     channels
 }
@@ -180,6 +225,6 @@ fn join_channel(channel_id: String, bot_token: String) {
     client
         .post("https://slack.com/api/conversations.join")
         .header("Authorization", format!("Bearer {}", bot_token))
-        .query(&[("channel", channel_id)])
+        .query(&json!({"channel": channel_id}))
         .send().expect("Failed to send request");
 }
